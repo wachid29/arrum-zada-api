@@ -1,0 +1,14 @@
+{
+  "respondent": {
+    "fullName": "Budi Santoso",
+    "phoneNumber": "081234567890",
+    "ageRange": "25 - 35 tahun",
+    "targetHajjYear": 2032
+  },
+  "answers": [
+    { "questionId": 1, "answer": "Konversi Kebutuhan Dana ke Gram Emas" },
+    { "questionId": 4, "answer": "5" },
+    { "questionId": 9, "answer": "5" },
+    { "questionId": 10, "answer": "Sangat jelas dan membantu perencanaan haji keluarga!" }
+  ]
+}
