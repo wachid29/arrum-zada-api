@@ -1,7 +1,7 @@
 const express = require('express');
 const helmet = require('helmet');
 const swaggerUi = require('swagger-ui-express');
-const swaggerDocument = require('./docs/swaggerDoc');
+const { swaggerDocument, getDynamicSwaggerDoc } = require('./docs/swaggerDoc');
 const feedbackRoutes = require('./routes/feedbackRoutes');
 const db = require('./config/db');
 const { corsMiddleware } = require('./middlewares/corsHandler');
@@ -21,7 +21,7 @@ app.use(
   })
 );
 
-// 2. Dynamic CORS Origin Handling & Whitelist
+// 2. Dynamic CORS Origin Handling & Whitelist (Otomatis mengizinkan Same-Origin VPS)
 app.use(corsMiddleware);
 
 // 3. Brute-force & Abuse Protection (Global Rate Limiting)
@@ -34,13 +34,21 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 // 5. SQL Injection Pattern Guard (Defense-in-Depth untuk Query Params & URL Params)
 app.use(sqlInjectionGuard);
 
-// 6. Swagger Documentation UI mounted at /docs and /api-docs
+// 6. Endpoint Spesifikasi OpenAPI JSON Dinamis (Mendeteksi Host VPS / Domain secara otomatis)
+app.get(['/docs/json', '/api-docs/json'], (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  return res.json(getDynamicSwaggerDoc(req));
+});
+
+// 7. Swagger Documentation UI mounted at /docs and /api-docs
 const swaggerOptions = {
   customCss: '.swagger-ui .topbar { display: none }',
   customSiteTitle: 'Dokumentasi API Arrum Zada - Pegadaian',
+  swaggerUrl: '/docs/json', // Memuat spesifikasi dinamis dari server VPS/local aktif
 };
-app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, swaggerOptions));
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, swaggerOptions));
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(null, swaggerOptions));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(null, swaggerOptions));
+
 
 // Health Check
 app.get('/health', async (req, res) => {

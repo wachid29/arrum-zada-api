@@ -1,3 +1,63 @@
+/**
+ * Membangun daftar server yang fleksibel dan dinamis:
+ * 1. Host Aktif saat ini (otomatis mendeteksi IP/domain VPS tempat Swagger dibuka)
+ * 2. Relative URL (/) yang otomatis bekerja di browser host mana pun
+ * 3. URL VPS produksi dari variabel .env (jika diset via SWAGGER_SERVER_URL atau API_BASE_URL)
+ * 4. Kustom URL fleksibel (user dapat mengetik langsung IP/domain VPS di Swagger UI)
+ * 5. Localhost (untuk pengembangan lokal)
+ */
+function buildServersList(currentOrigin = null) {
+  const servers = [];
+
+  // 1. Host saat ini yang terdeteksi otomatis (misal: http://103.xxx.xxx.xxx:3000 atau https://api.domain.com)
+  if (currentOrigin) {
+    servers.push({
+      url: currentOrigin,
+      description: `Server Saat Ini (${currentOrigin}) - Terdeteksi Otomatis`,
+    });
+  }
+
+  // 2. Relative URL (Otomatis mengikuti domain & port yang sedang dibuka di browser)
+  servers.push({
+    url: '/',
+    description: 'Relative URL (/) - Mengikuti Host Browser VPS / Localhost',
+  });
+
+  // 3. Konfigurasi eksplisit dari file .env
+  const envServer = process.env.SWAGGER_SERVER_URL || process.env.API_BASE_URL;
+  if (envServer && envServer !== currentOrigin) {
+    servers.push({
+      url: envServer.replace(/\/$/, ''),
+      description: `VPS Server (${envServer}) [Dikonfigurasi via .env]`,
+    });
+  }
+
+  // 4. OpenAPI 3 Server Variables: Memungkinkan user MENGETIK LANGSUNG host/domain di Swagger UI
+  servers.push({
+    url: '{protocol}://{host}',
+    description: 'Kustom Host VPS (Ketik manual IP / Domain di formulir ini)',
+    variables: {
+      protocol: {
+        enum: ['http', 'https'],
+        default: currentOrigin && currentOrigin.startsWith('https') ? 'https' : 'http',
+        description: 'Protokol transfer',
+      },
+      host: {
+        default: currentOrigin ? currentOrigin.replace(/^https?:\/\//, '') : `localhost:${process.env.PORT || 3000}`,
+        description: 'IP VPS atau Domain (contoh: 103.190.21.50:3000 atau api.domain.com)',
+      },
+    },
+  });
+
+  // 5. Localhost Fallback
+  servers.push({
+    url: `http://localhost:${process.env.PORT || 3000}`,
+    description: 'Localhost (Development)',
+  });
+
+  return servers;
+}
+
 const swaggerDocument = {
   openapi: '3.0.0',
   info: {
@@ -33,12 +93,7 @@ Dokumentasi interaktif REST API untuk layanan evaluasi dan feedback dashboard si
       url: 'https://ifatich.github.io/arrum-zada/',
     },
   },
-  servers: [
-    {
-      url: 'http://localhost:3000',
-      description: 'Local Development Server',
-    },
-  ],
+  servers: buildServersList(),
   tags: [
     {
       name: 'Feedback',
@@ -331,4 +386,23 @@ Dokumentasi interaktif REST API untuk layanan evaluasi dan feedback dashboard si
   },
 };
 
-module.exports = swaggerDocument;
+function getDynamicSwaggerDoc(req) {
+  let currentOrigin = null;
+  if (req) {
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+    const host = req.headers['x-forwarded-host'] || req.get('host') || `localhost:${process.env.PORT || 3000}`;
+    currentOrigin = `${protocol}://${host}`;
+  }
+  return {
+    ...swaggerDocument,
+    servers: buildServersList(currentOrigin),
+  };
+}
+
+module.exports = {
+  swaggerDocument,
+  getDynamicSwaggerDoc,
+  buildServersList,
+};
+
+
