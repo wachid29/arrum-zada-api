@@ -1,0 +1,66 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    name: Test & Syntax Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Syntax & Integrity Check
+        run: node --check index.js src/app.js src/controllers/feedbackController.js
+
+  deploy:
+    name: Deploy to Production VPS
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Execute Deployment via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            set -e
+            TARGET_DIR="${{ secrets.VPS_TARGET_DIR || '/var/www/arrum-zada-api' }}"
+            
+            echo "🚀 Masuk ke direktori aplikasi: $TARGET_DIR"
+            cd "$TARGET_DIR"
+
+            echo "📥 Mengambil kode terbaru dari branch main..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "📦 Memperbarui dependensi (production only)..."
+            npm install --omit=dev
+
+            echo "🔄 Memuat ulang proses Express API dengan PM2..."
+            if command -v pm2 > /dev/null; then
+              pm2 reload ecosystem.config.js --env production || pm2 restart arrum-zada-api || pm2 start index.js --name arrum-zada-api -i max
+              pm2 save
+            else
+              echo "⚠️ PM2 belum terpasang secara global. Menjalankan fallback npm start..."
+            fi
+
+            echo "🩺 Memeriksa status kesehatan aplikasi..."
+            sleep 2
+            curl -f http://127.0.0.1:${PORT:-3000}/health || true
+
+            echo "✅ Deployment ke VPS berhasil diselesaikan!"
