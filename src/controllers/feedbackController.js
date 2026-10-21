@@ -10,10 +10,12 @@ class FeedbackController {
   /**
    * GET /api/v1/arrum-zada/feedback/questions
    * Mengambil daftar pertanyaan aktif untuk ditampilkan di formulir Frontend
+   * Dilengkapi in-memory caching (dapat dipaksa refresh dengan ?refresh=true)
    */
   async getQuestions(req, res) {
     try {
-      const data = await feedbackService.getQuestions();
+      const forceRefresh = req.query.refresh === 'true';
+      const data = await feedbackService.getQuestions({ forceRefresh });
       return sendResponse(res, 200, 'Daftar pertanyaan feedback berhasil diambil', data);
     } catch (error) {
       console.error('Error getQuestions:', error);

@@ -1,0 +1,69 @@
+services:
+  # --------------------------------------------------------------------
+  # 1. Backend Application (Express.js API)
+  # --------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: arrum-zada-api
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=arrum_zada
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-https://ifatich.github.io,http://localhost:3000,http://localhost:5173}
+      - RATE_LIMIT_GLOBAL_MAX=${RATE_LIMIT_GLOBAL_MAX:-100}
+      - RATE_LIMIT_SUBMIT_MAX=${RATE_LIMIT_SUBMIT_MAX:-10}
+      - RATE_LIMIT_AUTH_MAX=${RATE_LIMIT_AUTH_MAX:-20}
+      - JWT_SECRET=${JWT_SECRET:-arrum-zada-super-secret-jwt-key-2026-pegadaian-pasti}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-24h}
+      - GALERI24_HOST=${GALERI24_HOST:-https://galeri24.co.id}
+      - GALERI24_GOLD_PRICE_PATH=${GALERI24_GOLD_PRICE_PATH:-/api/gold-prices/daily-update}
+      - GOLD_PRICE_CACHE_TTL_MINUTES=${GOLD_PRICE_CACHE_TTL_MINUTES:-10}
+      - QUESTIONS_CACHE_TTL_MINUTES=${QUESTIONS_CACHE_TTL_MINUTES:-60}
+      - SWAGGER_SERVER_URL=${SWAGGER_SERVER_URL:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - arrum-network
+
+  # --------------------------------------------------------------------
+  # 2. Database PostgreSQL 15 Engine
+  # --------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: arrum-zada-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=arrum_zada
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Inisialisasi otomatis tabel & seed data saat volume pertama kali dibuat
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d arrum_zada"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - arrum-network
+
+volumes:
+  pgdata:
+    driver: local
+
+networks:
+  arrum-network:
+    driver: bridge

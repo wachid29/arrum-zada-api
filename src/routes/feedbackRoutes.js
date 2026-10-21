@@ -3,6 +3,7 @@ const router = express.Router();
 const { feedbackController } = require('../controllers');
 const { submissionLimiter } = require('../middlewares/rateLimiter');
 const { validateFeedbackPayload, validateSubmissionsQuery } = require('../middlewares/validateInput');
+const { authenticateToken } = require('../middlewares/authMiddleware');
 
 // ====================================================================
 // LIST ENDPOINTS: FEEDBACK & EVALUASI
@@ -24,9 +25,15 @@ router.post('/', submissionLimiter, validateFeedbackPayload, (req, res, next) =>
 
 /**
  * 3. Lihat rekap / daftar masukan yang masuk (internal / reporting)
+ * Wajib menyertakan Bearer Token yang valid (terautentikasi)
  * Dengan sanitasi query parameter & pagination
  * GET /api/v1/arrum-zada/feedback/submissions
  */
-router.get('/submissions', validateSubmissionsQuery, (req, res, next) => feedbackController.getSubmissions(req, res, next));
+router.get(
+  '/submissions',
+  authenticateToken,
+  validateSubmissionsQuery,
+  (req, res, next) => feedbackController.getSubmissions(req, res, next)
+);
 
 module.exports = router;

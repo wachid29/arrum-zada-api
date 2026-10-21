@@ -37,11 +37,32 @@ CREATE TABLE IF NOT EXISTS feedback_answers (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 4. Tabel Master Data Pegawai / Admin (Users)
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    full_name VARCHAR(150) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    phone_number VARCHAR(25) NOT NULL,
+    nip VARCHAR(50) NOT NULL UNIQUE,
+    position VARCHAR(100) NOT NULL,
+    role VARCHAR(50) NOT NULL CHECK (role IN ('Super Admin', 'Administrator')),
+    password_hash VARCHAR(255) NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexing untuk optimasi query analitik dan reporting
 CREATE INDEX IF NOT EXISTS idx_feedback_submissions_created_at ON feedback_submissions(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_feedback_answers_submission_id ON feedback_answers(submission_id);
 CREATE INDEX IF NOT EXISTS idx_feedback_answers_question_id ON feedback_answers(question_id);
 CREATE INDEX IF NOT EXISTS idx_feedback_questions_order ON feedback_questions(order_no ASC);
+
+-- Indexing untuk autentikasi dan pencarian pengguna
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower ON users (LOWER(email));
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_nip ON users (nip);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users (role);
+CREATE INDEX IF NOT EXISTS idx_users_created_at ON users (created_at DESC);
 
 -- ====================================================================
 -- SEED DATA: 10 Butir Pertanyaan Resmi BRD Arrum Zada (Iterasi 2)

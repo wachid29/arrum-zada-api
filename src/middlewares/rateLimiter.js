@@ -42,7 +42,29 @@ const submissionLimiter = rateLimit({
   },
 });
 
+/**
+ * 3. Strict Rate Limiter untuk endpoint autentikasi (POST /register & POST /login)
+ * Mencegah serangan brute-force credential stuffing, password cracking, dan spam registrasi
+ * Membatasi maksimal 20 percobaan per 15 menit per IP (kecuali pada environment test)
+ */
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 menit
+  limit: process.env.NODE_ENV === 'test' ? 1000 : (parseInt(process.env.RATE_LIMIT_AUTH_MAX, 10) || 20),
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  statusCode: 429,
+  message: formatResponse(
+    429,
+    'Terlalu banyak percobaan autentikasi dari IP Anda. Demi keamanan, silakan coba lagi setelah 15 menit.',
+    null
+  ),
+  handler: (req, res, next, options) => {
+    res.status(options.statusCode).json(options.message);
+  },
+});
+
 module.exports = {
   globalLimiter,
   submissionLimiter,
+  authLimiter,
 };

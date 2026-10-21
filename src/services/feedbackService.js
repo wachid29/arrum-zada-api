@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const db = require('../config/db');
 const { Submission } = require('../entities');
 const { questionRepository, submissionRepository, answerRepository } = require('../repositories');
+const { normalizeToLocalPhone } = require('../utils/phoneHelper');
 
 /**
  * Service: Feedback
@@ -9,6 +10,15 @@ const { questionRepository, submissionRepository, answerRepository } = require('
  * pengelolaan transaksi database (ACID), dan orkestrasi repository.
  */
 class FeedbackService {
+  constructor() {
+    const ttlMinutes = parseInt(process.env.QUESTIONS_CACHE_TTL_MINUTES || '60', 10);
+    this.questionsCache = {
+      data: null,
+      lastFetched: 0,
+      ttlMs: ttlMinutes * 60 * 1000, // In-memory cache TTL untuk pertanyaan survei (default: 60 menit)
+    };
+  }
+
   /**
    * Menghasilkan ID unik yang mudah dibaca manusia (Contoh: FB-202610-A9F82C)
    * @returns {string}
@@ -20,12 +30,43 @@ class FeedbackService {
   }
 
   /**
-   * Mengambil daftar seluruh pertanyaan survei aktif
+   * Mengambil daftar seluruh pertanyaan survei aktif (dengan In-Memory Caching)
+   * @param {{ forceRefresh?: boolean }} options
    * @returns {Promise<Array<Object>>}
    */
-  async getQuestions() {
-    const questions = await questionRepository.findAllActive();
-    return questions.map((q) => q.toJSON());
+  async getQuestions({ forceRefresh = false } = {}) {
+    const now = Date.now();
+
+    // 1. Cache HIT: Langsung kembalikan dari RAM jika masih dalam masa TTL
+    if (!forceRefresh && this.questionsCache.data && (now - this.questionsCache.lastFetched < this.questionsCache.ttlMs)) {
+      return this.questionsCache.data;
+    }
+
+    // 2. Cache MISS / Expired: Ambil dari database PostgreSQL
+    try {
+      const questions = await questionRepository.findAllActive();
+      const serialized = questions.map((q) => q.toJSON());
+
+      this.questionsCache.data = serialized;
+      this.questionsCache.lastFetched = now;
+
+      return serialized;
+    } catch (err) {
+      // 3. Stale Fallback: Jika database sempat bermasalah namun ada cache sebelumnya, layani cache
+      if (this.questionsCache.data) {
+        console.warn('Menggunakan cache daftar pertanyaan akibat kendala kueri database:', err.message);
+        return this.questionsCache.data;
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Mengosongkan cache pertanyaan (berguna untuk invalidasi instan saat admin mengubah pertanyaan)
+   */
+  clearQuestionsCache() {
+    this.questionsCache.data = null;
+    this.questionsCache.lastFetched = 0;
   }
 
   /**
@@ -42,6 +83,11 @@ class FeedbackService {
     }
 
     const submissionId = this.generateSubmissionId();
+    // Normalisasi format nomor telepon responden ke format lokal diawali 08 (misal: +628... -> 08...)
+    if (respondent && respondent.phoneNumber) {
+      respondent.phoneNumber = normalizeToLocalPhone(respondent.phoneNumber);
+    }
+
     const submission = Submission.create({
       id: submissionId,
       respondent,

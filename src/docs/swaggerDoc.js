@@ -96,6 +96,14 @@ Dokumentasi interaktif REST API untuk layanan evaluasi dan feedback dashboard si
   servers: buildServersList(),
   tags: [
     {
+      name: 'Authentication',
+      description: 'Endpoint pendaftaran akun pegawai dan login (Super Admin & Administrator)',
+    },
+    {
+      name: 'Gold Prices',
+      description: 'Integrasi harga emas harian resmi dari Galeri 24 (PT Pegadaian Group)',
+    },
+    {
       name: 'Feedback',
       description: 'Endpoint kuesioner dan pengumpulan feedback pengguna',
     },
@@ -105,6 +113,212 @@ Dokumentasi interaktif REST API untuk layanan evaluasi dan feedback dashboard si
     },
   ],
   paths: {
+    '/api/v1/arrum-zada/gold-prices': {
+      get: {
+        tags: ['Gold Prices'],
+        summary: 'Ambil Data Harga Emas Harian (Galeri 24)',
+        description: 'Mengambil data harga jual dan buyback emas harian dari API resmi Galeri 24 (vendor: GALERI 24, ANTAM, UBS, dsb.). Dilengkapi in-memory caching untuk keandalan data.',
+        parameters: [
+          {
+            name: 'refresh',
+            in: 'query',
+            description: 'Set true untuk memaksa pembaruan data langsung dari server Galeri 24 tanpa menggunakan cache',
+            required: false,
+            schema: {
+              type: 'boolean',
+              default: false,
+            },
+          },
+        ],
+        responses: {
+          200: {
+            description: 'Data harga emas harian berhasil diambil',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    responseCode: { type: 'integer', example: 200 },
+                    responseDesc: { type: 'string', example: 'Data harga emas harian berhasil diambil dari Galeri 24' },
+                    data: {
+                      type: 'array',
+                      items: {
+                        $ref: '#/components/schemas/GoldPriceItem',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          502: {
+            description: 'Gagal terhubung atau server Galeri 24 sedang mengalami gangguan',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/api/v1/auth/register': {
+      post: {
+        tags: ['Authentication'],
+        summary: 'Pendaftaran Akun Pegawai PT Pegadaian',
+        description: 'Mendaftarkan pegawai baru dengan role Super Admin atau Administrator. Email harus berdomain kedinasan @pegadaian.co.id, NIP dan email bersifat unik, nomor seluler diawali +62 atau 08, dan password di-hash satu arah (bcrypt).',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/RegisterRequest',
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: 'Registrasi berhasil, mengembalikan profil akun pegawai (silakan login untuk mendapatkan token JWT)',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/RegisterSuccessResponse',
+                },
+              },
+            },
+          },
+          400: {
+            description: 'Validasi input gagal (format data tidak sesuai aturan BRD)',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          409: {
+            description: 'Email atau NIP sudah terdaftar dalam sistem (Unique Constraint)',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          429: {
+            description: 'Rate limit tercapai (terlalu banyak percobaan)',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/api/v1/auth/login': {
+      post: {
+        tags: ['Authentication'],
+        summary: 'Autentikasi & Login Pegawai',
+        description: 'Login menggunakan kredensial berupa Email kedinasan atau NIP dan kata sandi.',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/LoginRequest',
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Login berhasil, token JWT dan profil dikembalikan',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/AuthSuccessResponse',
+                },
+              },
+            },
+          },
+          400: {
+            description: 'Kredensial atau kata sandi tidak disertakan',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          401: {
+            description: 'Email/NIP atau kata sandi tidak valid',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+          429: {
+            description: 'Rate limit autentikasi tercapai',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/api/v1/auth/me': {
+      get: {
+        tags: ['Authentication'],
+        summary: 'Profil Pengguna Aktif (Protected Route)',
+        description: 'Mengambil informasi detail akun pegawai yang sedang login menggunakan header Authorization Bearer token.',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: 'Profil pengguna berhasil diambil',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    responseCode: { type: 'integer', example: 200 },
+                    responseDesc: { type: 'string', example: 'Data profil pegawai berhasil diambil.' },
+                    data: {
+                      $ref: '#/components/schemas/UserProfile',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: 'Token hilang, tidak valid, atau telah kedaluwarsa',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     '/health': {
       get: {
         tags: ['System'],
@@ -286,7 +500,8 @@ Dokumentasi interaktif REST API untuk layanan evaluasi dan feedback dashboard si
       get: {
         tags: ['Feedback'],
         summary: 'Ambil Rekapitulasi Masukan Pengguna (Admin / Reporting)',
-        description: 'Menampilkan riwayat data masukan responden yang masuk beserta detail jawaban per pertanyaan.',
+        description: 'Menampilkan riwayat data masukan responden yang masuk beserta detail jawaban per pertanyaan. Wajib menyertakan Bearer Token (login pegawai).',
+        security: [{ bearerAuth: [] }],
         parameters: [
           {
             name: 'limit',
@@ -334,6 +549,16 @@ Dokumentasi interaktif REST API untuk layanan evaluasi dan feedback dashboard si
                       },
                     },
                   },
+                },
+              },
+            },
+          },
+          401: {
+            description: 'Akses ditolak: Token autentikasi Bearer wajib disertakan dan valid',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
                 },
               },
             },
@@ -467,6 +692,140 @@ Dokumentasi interaktif REST API untuk layanan evaluasi dan feedback dashboard si
             },
           },
         },
+      },
+      RegisterRequest: {
+        type: 'object',
+        required: ['fullName', 'email', 'phoneNumber', 'nip', 'position', 'role', 'password', 'confirmPassword'],
+        properties: {
+          fullName: {
+            type: 'string',
+            example: 'Ahmad Dahlan',
+            description: 'Minimal 3 karakter',
+          },
+          email: {
+            type: 'string',
+            format: 'email',
+            example: 'ahmad.dahlan@pegadaian.co.id',
+            description: 'Domain kedinasan e.g. @pegadaian.co.id (bersifat unik)',
+          },
+          phoneNumber: {
+            type: 'string',
+            example: '+6281234567890',
+            description: 'Format nomor seluler E.164, diawali +62 atau 08',
+          },
+          nip: {
+            type: 'string',
+            example: 'P89201',
+            description: 'Nomor Induk Pegawai PT Pegadaian (bersifat unik)',
+          },
+          position: {
+            type: 'string',
+            example: 'Staf TI Aplikasi Syariah',
+            description: 'Nama jabatan struktural/fungsional pegawai',
+          },
+          role: {
+            type: 'string',
+            enum: ['Super Admin', 'Administrator'],
+            example: 'Administrator',
+            description: "Pilihan: 'Super Admin' atau 'Administrator'",
+          },
+          password: {
+            type: 'string',
+            format: 'password',
+            example: 'Pegadaian2026!',
+            description: 'Minimal 8 karakter, di-hash satu arah (bcrypt) di backend',
+          },
+          confirmPassword: {
+            type: 'string',
+            format: 'password',
+            example: 'Pegadaian2026!',
+            description: 'Harus sama persis dengan password',
+          },
+        },
+      },
+      LoginRequest: {
+        type: 'object',
+        required: ['password'],
+        properties: {
+          identifier: {
+            type: 'string',
+            example: 'ahmad.dahlan@pegadaian.co.id',
+            description: 'Alamat Email kedinasan atau Nomor Induk Pegawai (NIP)',
+          },
+          password: {
+            type: 'string',
+            format: 'password',
+            example: 'Pegadaian2026!',
+            description: 'Kata sandi akun',
+          },
+        },
+      },
+      UserProfile: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer', example: 1 },
+          fullName: { type: 'string', example: 'Ahmad Dahlan' },
+          email: { type: 'string', example: 'ahmad.dahlan@pegadaian.co.id' },
+          phoneNumber: { type: 'string', example: '+6281234567890' },
+          nip: { type: 'string', example: 'P89201' },
+          position: { type: 'string', example: 'Staf TI Aplikasi Syariah' },
+          role: { type: 'string', example: 'Administrator' },
+          isActive: { type: 'boolean', example: true },
+          createdAt: { type: 'string', example: '2026-10-21T08:00:00.000Z' },
+          updatedAt: { type: 'string', example: '2026-10-21T08:00:00.000Z' },
+        },
+      },
+      AuthSuccessResponse: {
+        type: 'object',
+        properties: {
+          responseCode: { type: 'integer', example: 200 },
+          responseDesc: { type: 'string', example: 'Login berhasil' },
+          data: {
+            type: 'object',
+            properties: {
+              token: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' },
+              tokenType: { type: 'string', example: 'Bearer' },
+              expiresIn: { type: 'string', example: '24h' },
+              user: {
+                $ref: '#/components/schemas/UserProfile',
+              },
+            },
+          },
+        },
+      },
+      RegisterSuccessResponse: {
+        type: 'object',
+        properties: {
+          responseCode: { type: 'integer', example: 201 },
+          responseDesc: { type: 'string', example: 'Registrasi akun pegawai PT Pegadaian berhasil!' },
+          data: {
+            type: 'object',
+            properties: {
+              user: {
+                $ref: '#/components/schemas/UserProfile',
+              },
+            },
+          },
+        },
+      },
+      GoldPriceItem: {
+        type: 'object',
+        properties: {
+          date: { type: 'string', example: '2026-10-21' },
+          sellingPrice: { type: 'string', example: '2504000' },
+          buybackPrice: { type: 'string', example: '2358000' },
+          vendorName: { type: 'string', example: 'GALERI 24' },
+          changeSell: { type: 'string', example: '-0.24' },
+          changeBuy: { type: 'string', example: '-0.21' },
+        },
+      },
+    },
+    securitySchemes: {
+      bearerAuth: {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'Masukkan Bearer JWT token hasil registrasi atau login',
       },
     },
   },
