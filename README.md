@@ -103,32 +103,57 @@ Seluruh endpoint API Arrum Zada menggunakan format respon standar seragam:
 
 ---
 
-## 📁 Struktur Direktori
+## 📁 Struktur Direktori & Arsitektur Layered
+
+Aplikasi mengadopsi arsitektur berlapis (*layered architecture* / *separation of concerns*):
 
 ```
 arrum-zada-api/
 ├── database/
-│   └── schema.sql                # DDL Schema & 10 Butir Pertanyaan Seed BRD
+│   └── schema.sql                  # DDL Schema & 10 Butir Pertanyaan Seed BRD
 ├── src/
 │   ├── config/
-│   │   └── db.js                 # PostgreSQL Pool Connection
-│   ├── controllers/
-│   │   └── feedbackController.js # Handler API (Questions, Submit, Submissions)
+│   │   └── db.js                   # PostgreSQL Pool Connection
+│   ├── entities/                   # [ENTITY] Definisi Domain Objects & Model
+│   │   ├── Question.js             # Model Butir Pertanyaan Survei
+│   │   ├── Respondent.js           # Model Profil Responden
+│   │   ├── Answer.js               # Model Jawaban Responden
+│   │   ├── Submission.js           # Model Master Submission Kuesioner
+│   │   └── index.js
+│   ├── repositories/               # [REPOSITORY] Kueri Database (SQL / Data Access)
+│   │   ├── questionRepository.js   # Kueri tabel feedback_questions
+│   │   ├── submissionRepository.js # Kueri tabel feedback_submissions
+│   │   ├── answerRepository.js     # Kueri tabel feedback_answers
+│   │   └── index.js
+│   ├── services/                   # [SERVICE] Logika Bisnis & Transaksi ACID
+│   │   ├── feedbackService.js      # Business logic feedback & transaksi DB
+│   │   ├── healthService.js        # Health check status & overview
+│   │   └── index.js
+│   ├── controllers/                # [CONTROLLER] HTTP Request & Response Adapter
+│   │   ├── feedbackController.js   # Handler HTTP Feedback
+│   │   ├── healthController.js     # Handler HTTP Health & Root
+│   │   └── index.js
+│   ├── routes/                     # [ROUTES] Daftar Endpoint & Middleware Binding
+│   │   ├── feedbackRoutes.js       # List endpoint feedback (/questions, /, /submissions)
+│   │   ├── healthRoutes.js         # List endpoint health & root (/health, /)
+│   │   └── index.js                # Master route registry
 │   ├── docs/
-│   │   └── swaggerDoc.js         # OpenAPI 3.0 Specification
+│   │   └── swaggerDoc.js           # OpenAPI 3.0 Specification
 │   ├── middlewares/
-│   │   ├── corsHandler.js        # Dynamic Origin Whitelist
-│   │   ├── rateLimiter.js        # Anti-Bruteforce & Anti-Spam
-│   │   ├── sqlInjectionGuard.js  # SQLi Pattern Inspector
-│   │   └── validateInput.js      # Input Schema Validation & Sanitizer
-│   ├── routes/
-│   │   └── feedbackRoutes.js     # Route Definitions
+│   │   ├── corsHandler.js          # Dynamic Origin Whitelist
+│   │   ├── rateLimiter.js          # Anti-Bruteforce & Anti-Spam
+│   │   ├── sqlInjectionGuard.js    # SQLi Pattern Inspector
+│   │   └── validateInput.js        # Input Schema Validation & Sanitizer
 │   ├── utils/
-│   │   └── responseHelper.js     # Standard Response Formatter (responseCode, responseDesc, data)
-│   └── app.js                    # Express Application Setup
-├── .env.example                  # Template Konfigurasi Environment
-├── .gitignore                    # Git Exclusion Rules
-├── index.js                      # Entry Point Server
+│   │   └── responseHelper.js       # Standard Response Formatter (responseCode, responseDesc, data)
+│   └── app.js                      # Express Application Setup
+├── tests/                          # Automated Tests (Unit & Integration)
+│   ├── entities.test.js            # Unit test entities
+│   ├── services.test.js            # Unit test services
+│   └── routes.test.js              # Integration test routes & validation
+├── .env.example                    # Template Konfigurasi Environment
+├── .gitignore                      # Git Exclusion Rules
+├── index.js                        # Entry Point Server
 ├── package.json
 └── README.md
 ```

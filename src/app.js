@@ -1,9 +1,8 @@
 const express = require('express');
 const helmet = require('helmet');
 const swaggerUi = require('swagger-ui-express');
-const { swaggerDocument, getDynamicSwaggerDoc } = require('./docs/swaggerDoc');
-const feedbackRoutes = require('./routes/feedbackRoutes');
-const db = require('./config/db');
+const { getDynamicSwaggerDoc } = require('./docs/swaggerDoc');
+const routes = require('./routes');
 const { corsMiddleware } = require('./middlewares/corsHandler');
 const { globalLimiter } = require('./middlewares/rateLimiter');
 const sqlInjectionGuard = require('./middlewares/sqlInjectionGuard');
@@ -51,51 +50,8 @@ app.use('/docs', swaggerUi.serve, swaggerUi.setup(null, swaggerOptions));
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(null, swaggerOptions));
 
 
-// Health Check
-app.get('/health', async (req, res) => {
-  try {
-    await db.query('SELECT 1');
-    return sendResponse(res, 200, 'Server dan database dalam kondisi normal (UP)', {
-      status: 'UP',
-      timestamp: new Date().toISOString(),
-      database: 'Connected',
-    });
-  } catch (err) {
-    return sendResponse(res, 503, err.message || 'Database terputus atau mengalami gangguan (DEGRADED)', {
-      status: 'DEGRADED',
-      timestamp: new Date().toISOString(),
-      database: 'Disconnected',
-    });
-  }
-});
-
-// Base Route
-app.get('/', (req, res) => {
-  return sendResponse(res, 200, 'Layanan Arrum Zada Feedback API aktif', {
-    name: 'Arrum Zada Feedback API',
-    version: '1.0.0',
-    description: 'API Layanan Pengumpulan Evaluasi & Feedback Simulasi Emas Haji Pegadaian',
-    documentation: {
-      swaggerUI: '/docs',
-      alternative: '/api-docs',
-    },
-    security: {
-      rateLimiting: 'Active (Global 100 req/15min, Submit 10 req/15min)',
-      cors: 'Whitelist & Dynamic Origin Validation Active',
-      sqlInjectionProtection: 'Active (Parameterized Queries + Pattern Inspection + Input Sanitization)',
-    },
-    endpoints: {
-      documentation: 'GET /docs',
-      health: 'GET /health',
-      getQuestions: 'GET /api/v1/arrum-zada/feedback/questions',
-      submitFeedback: 'POST /api/v1/arrum-zada/feedback',
-      getSubmissions: 'GET /api/v1/arrum-zada/feedback/submissions',
-    },
-  });
-});
-
-// API Routes
-app.use('/api/v1/arrum-zada/feedback', feedbackRoutes);
+// 8. Register All API Routes (Endpoints for Feedback, Health Check, and Overview)
+app.use('/', routes);
 
 // 404 Handler
 app.use((req, res) => {
