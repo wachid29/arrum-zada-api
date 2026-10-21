@@ -46,6 +46,14 @@ REST API backend berbasis **Express.js** dan **PostgreSQL** untuk layanan evalua
    - **Input Sanitization & Validation:** Regex digit ketat (`/^\d+$/`), sanitasi null-byte (`\0`), dan pembatasan panjang payload.
 4. **HTTP Security Headers (Helmet):**
    - Proteksi dari XSS, MIME-sniffing (`nosniff`), Clickjacking (`SAMEORIGIN`), dan HSTS.
+5. **Request Timeout 30 Detik (SLA Protection):**
+   - Seluruh request dibatasi maksimal 30 detik (`REQUEST_TIMEOUT_MS=30000`).
+   - Mencegah proses menggantung (*hanging requests*) akibat jaringan lambat atau query berat dengan mengembalikan respon terstandarisasi **HTTP 408 Request Timeout**.
+   - Dilengkapi proteksi socket timeout pada HTTP server untuk menangkal serangan Slowloris.
+6. **Logging Per Endpoint (Audit & Observability):**
+   - Mencatat otomatis setiap panggilan endpoint HTTP: metode (`GET`, `POST`, dll.), path/URL, status code, latensi waktu respons (`ms`), dan alamat IP klien.
+   - Pembedaan level log: `INFO` (2xx/3xx), `WARN` (4xx), dan `ERROR` (5xx).
+   - Dapat diaktifkan/dinonaktifkan via environment variable `ENABLE_HTTP_LOGS`.
 
 ---
 

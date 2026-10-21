@@ -6,6 +6,8 @@ const routes = require('./routes');
 const { corsMiddleware } = require('./middlewares/corsHandler');
 const { globalLimiter } = require('./middlewares/rateLimiter');
 const sqlInjectionGuard = require('./middlewares/sqlInjectionGuard');
+const { requestLogger } = require('./middlewares/requestLogger');
+const { requestTimeout } = require('./middlewares/requestTimeout');
 const { sendResponse } = require('./utils/responseHelper');
 
 const app = express();
@@ -13,7 +15,13 @@ const app = express();
 // Trust proxy (untuk reverse proxy seperti Nginx / Cloudflare / Load Balancer)
 app.set('trust proxy', 1);
 
-// 1. HTTP Security Headers via Helmet (nonaktifkan CSP agar Swagger UI render dengan lancar)
+// 1. Request Logger per endpoint (mencatat method, path, status, latency ms, dan IP klien)
+app.use(requestLogger);
+
+// 2. Request Timeout Middleware (batas waktu eksekusi request 30 detik)
+app.use(requestTimeout);
+
+// 3. HTTP Security Headers via Helmet (nonaktifkan CSP agar Swagger UI render dengan lancar)
 app.use(
   helmet({
     contentSecurityPolicy: false,
@@ -21,17 +29,17 @@ app.use(
   })
 );
 
-// 2. Dynamic CORS Origin Handling & Whitelist (Otomatis mengizinkan Same-Origin VPS)
+// 4. Dynamic CORS Origin Handling & Whitelist (Otomatis mengizinkan Same-Origin VPS)
 app.use(corsMiddleware);
 
-// 3. Brute-force & Abuse Protection (Global Rate Limiting)
+// 5. Brute-force & Abuse Protection (Global Rate Limiting)
 app.use(globalLimiter);
 
-// 4. Body Parsers dengan batasan payload aman
+// 6. Body Parsers dengan batasan payload aman
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
-// 5. SQL Injection Pattern Guard (Defense-in-Depth untuk Query Params & URL Params)
+// 7. SQL Injection Pattern Guard (Defense-in-Depth untuk Query Params & URL Params)
 app.use(sqlInjectionGuard);
 
 // 6. Endpoint Spesifikasi OpenAPI JSON Dinamis (Mendeteksi Host VPS / Domain secara otomatis)
@@ -60,6 +68,10 @@ app.use((req, res) => {
 
 // Global Error Handler (Termasuk Penanganan CORS Error)
 app.use((err, req, res, next) => {
+  if (res.headersSent) {
+    return next(err);
+  }
+
   if (err.isCorsError || err.status === 403) {
     return sendResponse(res, 403, err.message || 'Akses ditolak oleh kebijakan keamanan CORS.', null);
   }

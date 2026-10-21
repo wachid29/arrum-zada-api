@@ -48,6 +48,8 @@ class HealthService {
         cors: 'Whitelist & Dynamic Origin Validation Active',
         sqlInjectionProtection: 'Active (Parameterized Queries + Pattern Inspection + Input Sanitization)',
         authentication: 'JWT (JSON Web Token) with bcrypt password hashing',
+        requestTimeout: '30s per-request timeout',
+        requestLogger: 'Active per-endpoint request logging',
       },
       endpoints: {
         documentation: 'GET /docs',
