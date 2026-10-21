@@ -1,3 +1,5 @@
+const { sendResponse } = require('../utils/responseHelper');
+
 /**
  * Middleware Deteksi Pola SQL Injection (Defense-in-Depth)
  * 
@@ -45,21 +47,13 @@ function sqlInjectionGuard(req, res, next) {
   // 1. Periksa Query Strings (misal: ?limit=10; DROP TABLE ...)
   if (req.query && scanValueForSqli(req.query)) {
     console.warn(`[SECURITY ALERT] Percobaan SQL Injection terdeteksi pada query parameters dari IP ${req.ip}:`, req.query);
-    return res.status(400).json({
-      success: false,
-      code: 'SQL_INJECTION_DETECTED',
-      message: 'Permintaan ditolak: Parameter URL mengandung pola karakter SQL yang tidak diizinkan.',
-    });
+    return sendResponse(res, 400, 'Permintaan ditolak: Parameter URL mengandung pola karakter SQL yang tidak diizinkan.', null);
   }
 
   // 2. Periksa URL Parameters (misal: /api/:id)
   if (req.params && scanValueForSqli(req.params)) {
     console.warn(`[SECURITY ALERT] Percobaan SQL Injection terdeteksi pada route params dari IP ${req.ip}:`, req.params);
-    return res.status(400).json({
-      success: false,
-      code: 'SQL_INJECTION_DETECTED',
-      message: 'Permintaan ditolak: Route parameter mengandung pola karakter SQL berbahaya.',
-    });
+    return sendResponse(res, 400, 'Permintaan ditolak: Route parameter mengandung pola karakter SQL berbahaya.', null);
   }
 
   next();

@@ -170,11 +170,11 @@ sequenceDiagram
     alt Semua Query Berhasil
         API->>DB: Jalankan `COMMIT`
         DB-->>API: Transaksi permanen tersimpan
-        API-->>UI: HTTP 201 Created {"success": true, "submissionId": "..."}
+        API-->>UI: HTTP 201 Created {"responseCode": 201, "responseDesc": "...", "data": {"submissionId": "..."}}
         UI-->>Nasabah: Tampilkan notifikasi "Terima kasih atas masukan Anda!"
     else Terjadi Kesalahan Database
         API->>DB: Jalankan `ROLLBACK` (Batalkan seluruh perubahan)
-        API-->>UI: HTTP 500 Internal Server Error {"success": false}
+        API-->>UI: HTTP 500 Internal Server Error {"responseCode": 500, "responseDesc": "...", "data": null}
         UI-->>Nasabah: Tampilkan pesan gagal & opsi coba lagi
     end
 ```
@@ -199,7 +199,7 @@ sequenceDiagram
     API->>DB: SELECT COUNT(*) FROM feedback_submissions;
     API->>DB: SELECT s.*, json_agg(q.question_text, a.answer_value) FROM submissions s LEFT JOIN answers a ... LIMIT $1 OFFSET $2;
     DB-->>API: Data agregasi JSON terstruktur
-    API-->>Admin: HTTP 200 OK (Pagination metadata + Array submissions)
+    API-->>Admin: HTTP 200 OK {"responseCode": 200, "responseDesc": "...", "data": {"items": [...], "meta": {...}}}
 ```
 
 ---

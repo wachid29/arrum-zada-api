@@ -76,6 +76,33 @@ Buka di browser:
 
 ---
 
+## 📦 Standarisasi Format Respon API
+
+Seluruh endpoint API Arrum Zada menggunakan format respon standar seragam:
+
+```json
+{
+  "responseCode": 200,
+  "responseDesc": "Daftar data submission berhasil diambil",
+  "data": {
+    "items": [ ... ],
+    "meta": {
+      "page": 1,
+      "limit": 50,
+      "totalRecords": 100,
+      "totalPages": 2
+    }
+  }
+}
+```
+
+- **`responseCode`**: Kode status HTTP balikan fungsi (misal: `200`, `201`, `400`, `403`, `404`, `429`, `500`, `503`).
+- **`responseDesc`**: Pesan deskripsi hasil eksekusi atau pesan error.
+- **`data`**: Data hasil eksekusi fungsi (`nullable`, bernilai `null` saat error atau tanpa data).
+- **`data.meta`**: Objek metadata paginasi (`page`, `limit`, `totalRecords`, `totalPages`) yang disematkan di dalam `data` jika endpoint mendukung paginasi.
+
+---
+
 ## 📁 Struktur Direktori
 
 ```
@@ -96,6 +123,8 @@ arrum-zada-api/
 │   │   └── validateInput.js      # Input Schema Validation & Sanitizer
 │   ├── routes/
 │   │   └── feedbackRoutes.js     # Route Definitions
+│   ├── utils/
+│   │   └── responseHelper.js     # Standard Response Formatter (responseCode, responseDesc, data)
 │   └── app.js                    # Express Application Setup
 ├── .env.example                  # Template Konfigurasi Environment
 ├── .gitignore                    # Git Exclusion Rules

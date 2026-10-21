@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const db = require('../config/db');
+const { sendResponse, sendPaginatedResponse } = require('../utils/responseHelper');
 
 /**
  * Generate Readable Unique ID, e.g: FB-202610-A9F82C
@@ -31,19 +32,10 @@ async function getQuestions(req, res) {
     `;
     const result = await db.query(query);
 
-    return res.status(200).json({
-      success: true,
-      message: 'Daftar pertanyaan feedback berhasil diambil',
-      total: result.rowCount,
-      data: result.rows,
-    });
+    return sendResponse(res, 200, 'Daftar pertanyaan feedback berhasil diambil', result.rows);
   } catch (error) {
     console.error('Error getQuestions:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Terjadi kesalahan server saat mengambil pertanyaan',
-      error: error.message,
-    });
+    return sendResponse(res, 500, error.message || 'Terjadi kesalahan server saat mengambil pertanyaan', null);
   }
 }
 
@@ -56,11 +48,7 @@ async function submitFeedback(req, res) {
   const { respondent, answers } = req.cleanData || req.body;
 
   if (!answers || !Array.isArray(answers) || answers.length === 0) {
-    return res.status(400).json({
-      success: false,
-      code: 'INVALID_PAYLOAD',
-      message: 'Payload tidak valid: array answers wajib diisi minimal 1 jawaban',
-    });
+    return sendResponse(res, 400, 'Payload tidak valid: array answers wajib diisi minimal 1 jawaban', null);
   }
 
   const client = await db.getClient();
@@ -112,23 +100,14 @@ async function submitFeedback(req, res) {
 
     await client.query('COMMIT');
 
-    return res.status(201).json({
-      success: true,
-      message: 'Terima kasih atas masukan dan evaluasi Anda untuk Arrum Zada!',
-      data: {
-        submissionId: subResult.rows[0].id,
-        submittedAt: subResult.rows[0].createdAt,
-      },
+    return sendResponse(res, 201, 'Terima kasih atas masukan dan evaluasi Anda untuk Arrum Zada!', {
+      submissionId: subResult.rows[0].id,
+      submittedAt: subResult.rows[0].createdAt,
     });
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error submitFeedback:', error);
-    return res.status(500).json({
-      success: false,
-      code: 'DB_TRANSACTION_ERROR',
-      message: 'Gagal menyimpan masukan feedback ke dalam database.',
-      error: error.message,
-    });
+    return sendResponse(res, 500, error.message || 'Gagal menyimpan masukan feedback ke dalam database.', null);
   } finally {
     client.release();
   }
@@ -175,25 +154,17 @@ async function getSubmissions(req, res) {
       LIMIT $1 OFFSET $2;
     `;
     const result = await db.query(query, [limit, offset]);
+    const totalPages = Math.ceil(totalRecords / limit) || 1;
 
-    return res.status(200).json({
-      success: true,
-      pagination: {
-        totalRecords,
-        limit,
-        page,
-        totalPages: Math.ceil(totalRecords / limit) || 1,
-      },
-      data: result.rows,
+    return sendPaginatedResponse(res, 200, 'Daftar data submission berhasil diambil', result.rows, {
+      page,
+      limit,
+      totalRecords,
+      totalPages,
     });
   } catch (error) {
     console.error('Error getSubmissions:', error);
-    return res.status(500).json({
-      success: false,
-      code: 'DB_QUERY_ERROR',
-      message: 'Terjadi kesalahan saat mengambil data submission',
-      error: error.message,
-    });
+    return sendResponse(res, 500, error.message || 'Terjadi kesalahan saat mengambil data submission', null);
   }
 }
 

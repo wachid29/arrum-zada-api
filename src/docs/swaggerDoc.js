@@ -118,9 +118,16 @@ Dokumentasi interaktif REST API untuk layanan evaluasi dan feedback dashboard si
                 schema: {
                   type: 'object',
                   properties: {
-                    status: { type: 'string', example: 'UP' },
-                    timestamp: { type: 'string', example: '2026-10-20T04:00:00.000Z' },
-                    database: { type: 'string', example: 'Connected' },
+                    responseCode: { type: 'integer', example: 200 },
+                    responseDesc: { type: 'string', example: 'Server dan database dalam kondisi normal (UP)' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        status: { type: 'string', example: 'UP' },
+                        timestamp: { type: 'string', example: '2026-10-20T04:00:00.000Z' },
+                        database: { type: 'string', example: 'Connected' },
+                      },
+                    },
                   },
                 },
               },
@@ -128,6 +135,26 @@ Dokumentasi interaktif REST API untuk layanan evaluasi dan feedback dashboard si
           },
           503: {
             description: 'Database terputus atau mengalami gangguan (DEGRADED)',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    responseCode: { type: 'integer', example: 503 },
+                    responseDesc: { type: 'string', example: 'Database terputus atau mengalami gangguan (DEGRADED)' },
+                    data: {
+                      type: 'object',
+                      nullable: true,
+                      properties: {
+                        status: { type: 'string', example: 'DEGRADED' },
+                        timestamp: { type: 'string', example: '2026-10-20T04:00:00.000Z' },
+                        database: { type: 'string', example: 'Disconnected' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -145,9 +172,8 @@ Dokumentasi interaktif REST API untuk layanan evaluasi dan feedback dashboard si
                 schema: {
                   type: 'object',
                   properties: {
-                    success: { type: 'boolean', example: true },
-                    message: { type: 'string', example: 'Daftar pertanyaan feedback berhasil diambil' },
-                    total: { type: 'integer', example: 10 },
+                    responseCode: { type: 'integer', example: 200 },
+                    responseDesc: { type: 'string', example: 'Daftar pertanyaan feedback berhasil diambil' },
                     data: {
                       type: 'array',
                       items: {
@@ -161,6 +187,13 @@ Dokumentasi interaktif REST API untuk layanan evaluasi dan feedback dashboard si
           },
           500: {
             description: 'Kesalahan internal server saat mengambil pertanyaan',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
           },
         },
       },
@@ -198,8 +231,9 @@ Dokumentasi interaktif REST API untuk layanan evaluasi dan feedback dashboard si
                 schema: {
                   type: 'object',
                   properties: {
-                    success: { type: 'boolean', example: false },
-                    message: { type: 'string', example: 'Payload tidak valid: array answers wajib diisi minimal 1 jawaban' },
+                    responseCode: { type: 'integer', example: 400 },
+                    responseDesc: { type: 'string', example: 'Payload tidak valid: array answers wajib diisi minimal 1 jawaban' },
+                    data: { type: 'object', nullable: true, example: null },
                   },
                 },
               },
@@ -212,9 +246,9 @@ Dokumentasi interaktif REST API untuk layanan evaluasi dan feedback dashboard si
                 schema: {
                   type: 'object',
                   properties: {
-                    success: { type: 'boolean', example: false },
-                    code: { type: 'string', example: 'CORS_FORBIDDEN' },
-                    message: { type: 'string', example: "Akses diblokir: Origin 'https://unauthorized-domain.com' tidak terdaftar pada kebijakan CORS API." },
+                    responseCode: { type: 'integer', example: 403 },
+                    responseDesc: { type: 'string', example: "Akses diblokir: Origin 'https://unauthorized-domain.com' tidak terdaftar pada kebijakan CORS API." },
+                    data: { type: 'object', nullable: true, example: null },
                   },
                 },
               },
@@ -227,9 +261,9 @@ Dokumentasi interaktif REST API untuk layanan evaluasi dan feedback dashboard si
                 schema: {
                   type: 'object',
                   properties: {
-                    success: { type: 'boolean', example: false },
-                    code: { type: 'string', example: 'SUBMISSION_RATE_LIMIT_EXCEEDED' },
-                    message: { type: 'string', example: 'Pengiriman masukan dibatasi untuk mencegah spam. Anda telah mencapai batas maksimal (10 kali per 15 menit).' },
+                    responseCode: { type: 'integer', example: 429 },
+                    responseDesc: { type: 'string', example: 'Pengiriman masukan dibatasi untuk mencegah spam. Anda telah mencapai batas maksimal (10 kali per 15 menit).' },
+                    data: { type: 'object', nullable: true, example: null },
                   },
                 },
               },
@@ -237,6 +271,13 @@ Dokumentasi interaktif REST API untuk layanan evaluasi dan feedback dashboard si
           },
           500: {
             description: 'Kesalahan server saat transaksi database',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
           },
         },
       },
@@ -257,24 +298,52 @@ Dokumentasi interaktif REST API untuk layanan evaluasi dan feedback dashboard si
               default: 50,
             },
           },
+          {
+            name: 'page',
+            in: 'query',
+            description: 'Halaman data yang ingin diambil (mulai dari 1)',
+            required: false,
+            schema: {
+              type: 'integer',
+              default: 1,
+            },
+          },
         ],
         responses: {
           200: {
-            description: 'Daftar submission berhasil diambil',
+            description: 'Daftar submission berhasil diambil beserta metadata paginasi',
             content: {
               'application/json': {
                 schema: {
                   type: 'object',
                   properties: {
-                    success: { type: 'boolean', example: true },
-                    total: { type: 'integer', example: 1 },
+                    responseCode: { type: 'integer', example: 200 },
+                    responseDesc: { type: 'string', example: 'Daftar data submission berhasil diambil' },
                     data: {
-                      type: 'array',
-                      items: {
-                        $ref: '#/components/schemas/SubmissionDetail',
+                      type: 'object',
+                      properties: {
+                        items: {
+                          type: 'array',
+                          items: {
+                            $ref: '#/components/schemas/SubmissionDetail',
+                          },
+                        },
+                        meta: {
+                          $ref: '#/components/schemas/PaginationMeta',
+                        },
                       },
                     },
                   },
+                },
+              },
+            },
+          },
+          500: {
+            description: 'Kesalahan server saat mengambil data submission',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
                 },
               },
             },
@@ -348,8 +417,8 @@ Dokumentasi interaktif REST API untuk layanan evaluasi dan feedback dashboard si
       FeedbackSubmissionResponse: {
         type: 'object',
         properties: {
-          success: { type: 'boolean', example: true },
-          message: { type: 'string', example: 'Terima kasih atas masukan dan evaluasi Anda untuk Arrum Zada!' },
+          responseCode: { type: 'integer', example: 201 },
+          responseDesc: { type: 'string', example: 'Terima kasih atas masukan dan evaluasi Anda untuk Arrum Zada!' },
           data: {
             type: 'object',
             properties: {
@@ -357,6 +426,23 @@ Dokumentasi interaktif REST API untuk layanan evaluasi dan feedback dashboard si
               submittedAt: { type: 'string', example: '2026-10-20T04:00:00.000Z' },
             },
           },
+        },
+      },
+      PaginationMeta: {
+        type: 'object',
+        properties: {
+          page: { type: 'integer', example: 1 },
+          limit: { type: 'integer', example: 50 },
+          totalRecords: { type: 'integer', example: 100 },
+          totalPages: { type: 'integer', example: 2 },
+        },
+      },
+      ErrorResponse: {
+        type: 'object',
+        properties: {
+          responseCode: { type: 'integer', example: 500 },
+          responseDesc: { type: 'string', example: 'Terjadi kesalahan internal pada server' },
+          data: { type: 'object', nullable: true, example: null },
         },
       },
       SubmissionDetail: {

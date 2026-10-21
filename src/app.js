@@ -7,6 +7,7 @@ const db = require('./config/db');
 const { corsMiddleware } = require('./middlewares/corsHandler');
 const { globalLimiter } = require('./middlewares/rateLimiter');
 const sqlInjectionGuard = require('./middlewares/sqlInjectionGuard');
+const { sendResponse } = require('./utils/responseHelper');
 
 const app = express();
 
@@ -54,24 +55,23 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(null, swaggerOptions));
 app.get('/health', async (req, res) => {
   try {
     await db.query('SELECT 1');
-    return res.status(200).json({
+    return sendResponse(res, 200, 'Server dan database dalam kondisi normal (UP)', {
       status: 'UP',
       timestamp: new Date().toISOString(),
       database: 'Connected',
     });
   } catch (err) {
-    return res.status(503).json({
+    return sendResponse(res, 503, err.message || 'Database terputus atau mengalami gangguan (DEGRADED)', {
       status: 'DEGRADED',
       timestamp: new Date().toISOString(),
       database: 'Disconnected',
-      error: err.message,
     });
   }
 });
 
 // Base Route
 app.get('/', (req, res) => {
-  res.json({
+  return sendResponse(res, 200, 'Layanan Arrum Zada Feedback API aktif', {
     name: 'Arrum Zada Feedback API',
     version: '1.0.0',
     description: 'API Layanan Pengumpulan Evaluasi & Feedback Simulasi Emas Haji Pegadaian',
@@ -99,28 +99,18 @@ app.use('/api/v1/arrum-zada/feedback', feedbackRoutes);
 
 // 404 Handler
 app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: `Endpoint tidak ditemukan: ${req.method} ${req.originalUrl}`,
-  });
+  return sendResponse(res, 404, `Endpoint tidak ditemukan: ${req.method} ${req.originalUrl}`, null);
 });
 
 // Global Error Handler (Termasuk Penanganan CORS Error)
 app.use((err, req, res, next) => {
   if (err.isCorsError || err.status === 403) {
-    return res.status(403).json({
-      success: false,
-      code: 'CORS_FORBIDDEN',
-      message: err.message || 'Akses ditolak oleh kebijakan keamanan CORS.',
-    });
+    return sendResponse(res, 403, err.message || 'Akses ditolak oleh kebijakan keamanan CORS.', null);
   }
 
   console.error('Unhandled Error:', err);
-  res.status(err.status || 500).json({
-    success: false,
-    code: 'INTERNAL_SERVER_ERROR',
-    message: err.message || 'Terjadi kesalahan internal pada server',
-  });
+  const statusCode = err.status || 500;
+  return sendResponse(res, statusCode, err.message || 'Terjadi kesalahan internal pada server', null);
 });
 
 module.exports = app;

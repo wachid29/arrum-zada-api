@@ -1,6 +1,7 @@
 /**
  * Middleware Validasi & Sanitasi Input (Defense-in-Depth against SQL Injection & Input Tampering)
  */
+const { sendResponse } = require('../utils/responseHelper');
 
 // Menghapus karakter null byte (\0) yang sering dipakai untuk mem-bypass parser/driver
 function sanitizeString(str, maxLength = 255) {
@@ -16,57 +17,33 @@ function validateFeedbackPayload(req, res, next) {
 
   // 1. Validasi Answers
   if (!answers || !Array.isArray(answers) || answers.length === 0) {
-    return res.status(400).json({
-      success: false,
-      code: 'INVALID_PAYLOAD',
-      message: 'Payload tidak valid: array "answers" wajib disertakan dan tidak boleh kosong.',
-    });
+    return sendResponse(res, 400, 'Payload tidak valid: array "answers" wajib disertakan dan tidak boleh kosong.', null);
   }
 
   if (answers.length > 50) {
-    return res.status(400).json({
-      success: false,
-      code: 'PAYLOAD_TOO_LARGE',
-      message: 'Jumlah jawaban melebihi batas wajar (maksimal 50 item).',
-    });
+    return sendResponse(res, 400, 'Jumlah jawaban melebihi batas wajar (maksimal 50 item).', null);
   }
 
   const cleanAnswers = [];
   for (let i = 0; i < answers.length; i++) {
     const item = answers[i];
     if (!item || typeof item !== 'object') {
-      return res.status(400).json({
-        success: false,
-        code: 'INVALID_ANSWER_ITEM',
-        message: `Format butir jawaban pada indeks [${i}] tidak valid.`,
-      });
+      return sendResponse(res, 400, `Format butir jawaban pada indeks [${i}] tidak valid.`, null);
     }
 
     // Validasi ketat: hanya izinkan karakter digit murni (mencegah bypass parseInt '1 OR 1=1')
     const qIdStr = String(item.questionId).trim();
     if (!/^\d+$/.test(qIdStr)) {
-      return res.status(400).json({
-        success: false,
-        code: 'INVALID_QUESTION_ID',
-        message: `ID pertanyaan pada indeks [${i}] harus berupa angka murni tanpa karakter asing.`,
-      });
+      return sendResponse(res, 400, `ID pertanyaan pada indeks [${i}] harus berupa angka murni tanpa karakter asing.`, null);
     }
 
     const questionIdNum = parseInt(qIdStr, 10);
     if (questionIdNum <= 0) {
-      return res.status(400).json({
-        success: false,
-        code: 'INVALID_QUESTION_ID',
-        message: `ID pertanyaan pada indeks [${i}] harus bernilai lebih besar dari 0.`,
-      });
+      return sendResponse(res, 400, `ID pertanyaan pada indeks [${i}] harus bernilai lebih besar dari 0.`, null);
     }
 
     if (item.answer === undefined || item.answer === null) {
-      return res.status(400).json({
-        success: false,
-        code: 'MISSING_ANSWER_VALUE',
-        message: `Jawaban untuk questionId [${questionIdNum}] tidak boleh kosong.`,
-      });
+      return sendResponse(res, 400, `Jawaban untuk questionId [${questionIdNum}] tidak boleh kosong.`, null);
     }
 
     // Konversi jawaban ke teks aman (maksimal 5000 karakter per jawaban)
@@ -100,11 +77,7 @@ function validateFeedbackPayload(req, res, next) {
       const phone = sanitizeString(respondent.phoneNumber, 25);
       // Validasi hanya angka, tanda +, spasi, tanda hubung (-)
       if (!/^[0-9+\s-]{6,25}$/.test(phone)) {
-        return res.status(400).json({
-          success: false,
-          code: 'INVALID_PHONE_NUMBER',
-          message: 'Format nomor telepon tidak valid. Hanya boleh angka, +, spasi, atau tanda hubung.',
-        });
+        return sendResponse(res, 400, 'Format nomor telepon tidak valid. Hanya boleh angka, +, spasi, atau tanda hubung.', null);
       }
       cleanRespondent.phoneNumber = phone;
     }
@@ -116,19 +89,11 @@ function validateFeedbackPayload(req, res, next) {
     if (respondent.targetHajjYear !== undefined && respondent.targetHajjYear !== null && respondent.targetHajjYear !== '') {
       const yearStr = String(respondent.targetHajjYear).trim();
       if (!/^\d{4}$/.test(yearStr)) {
-        return res.status(400).json({
-          success: false,
-          code: 'INVALID_TARGET_YEAR',
-          message: 'Tahun target haji harus berupa 4 digit angka tahun yang valid (2024 - 2100).',
-        });
+        return sendResponse(res, 400, 'Tahun target haji harus berupa 4 digit angka tahun yang valid (2024 - 2100).', null);
       }
       const year = parseInt(yearStr, 10);
       if (year < 2024 || year > 2100) {
-        return res.status(400).json({
-          success: false,
-          code: 'INVALID_TARGET_YEAR',
-          message: 'Tahun target haji harus antara tahun 2024 dan 2100.',
-        });
+        return sendResponse(res, 400, 'Tahun target haji harus antara tahun 2024 dan 2100.', null);
       }
       cleanRespondent.targetHajjYear = year;
     }
