@@ -39,7 +39,12 @@ jobs:
           port: ${{ secrets.VPS_PORT || 22 }}
           script: |
             set -e
-            TARGET_DIR="${{ secrets.VPS_TARGET_DIR || '/var/www/arrum-zada-api' }}"
+
+            # Muat environment NVM agar node, npm, dan pm2 dapat dieksekusi di non-interactive shell
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+            TARGET_DIR="${{ secrets.VPS_TARGET_DIR || '/srv/arrum-zada-api' }}"
             
             echo "🚀 Masuk ke direktori aplikasi: $TARGET_DIR"
             cd "$TARGET_DIR"
@@ -51,16 +56,20 @@ jobs:
             echo "📦 Memperbarui dependensi (production only)..."
             npm install --omit=dev
 
+            echo "🗄️ Memeriksa migrasi database..."
+            node database/migrate_users.js || true
+
             echo "🔄 Memuat ulang proses Express API dengan PM2..."
             if command -v pm2 > /dev/null; then
-              pm2 reload ecosystem.config.js --env production || pm2 restart arrum-zada-api || pm2 start index.js --name arrum-zada-api -i max
+              pm2 reload ecosystem.config.js --env production || pm2 restart arrum-zada-api || pm2 start ecosystem.config.js --env production
               pm2 save
             else
-              echo "⚠️ PM2 belum terpasang secara global. Menjalankan fallback npm start..."
+              echo "❌ PM2 tidak ditemukan di environment VPS."
+              exit 1
             fi
 
             echo "🩺 Memeriksa status kesehatan aplikasi..."
             sleep 2
-            curl -f http://127.0.0.1:${PORT:-3000}/health || true
+            curl -f http://127.0.0.1:3000/health || true
 
             echo "✅ Deployment ke VPS berhasil diselesaikan!"
